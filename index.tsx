@@ -9,6 +9,7 @@ const clerkPubKey = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY || (wind
 
 const useServerAllowlist = () => {
   const [users, setUsers] = React.useState(INTERNAL_USERS);
+  const [loaded, setLoaded] = React.useState(false);
   React.useEffect(() => {
     (async () => {
       try {
@@ -18,16 +19,17 @@ const useServerAllowlist = () => {
           setUsers(data.users?.map((u: any) => ({ email: u.email, role: u.role })) || INTERNAL_USERS);
         }
       } catch {}
+      setLoaded(true);
     })();
   }, []);
-  return users;
+  return { users, loaded } as const;
 };
 
 const AllowlistGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
-  const users = useServerAllowlist();
-  if (!isLoaded) return null;
+  const { users, loaded } = useServerAllowlist();
+  if (!isLoaded || !loaded) return null;
   if (!isSignedIn) return <Navigate to="/sign-in" replace />;
   const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase();
   const allowed = users.some(u => u.email.toLowerCase() === email);
@@ -37,12 +39,15 @@ const AllowlistGate: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 const Admin: React.FC = () => {
   const { user } = useUser();
-  const email = user?.primaryEmailAddress?.emailAddress || '';
+  const email = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase();
+  const { users: allowlistUsers } = useServerAllowlist();
+  const serverIsAdmin = allowlistUsers.some(u => u.email.toLowerCase() === email && u.role === 'admin');
+  const canAdmin = serverIsAdmin || isAdminLocal(email);
+
   const [users, setUsers] = React.useState<{ email: string; role: string }[]>(INTERNAL_USERS);
   const [newEmail, setNewEmail] = React.useState('');
   const [role, setRole] = React.useState('member');
 
-  const isAdmin = isAdminLocal(email);
   React.useEffect(() => {
     (async () => {
       try {
@@ -55,7 +60,7 @@ const Admin: React.FC = () => {
     })();
   }, [email]);
 
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!canAdmin) return <Navigate to="/" replace />;
 
   const addOrUpdate = async () => {
     if (!newEmail) return;
