@@ -1,0 +1,5 @@
+{
+  "name": "Code Buddy",
+  "description": "An interactive AI-powered learning platform designed to teach programming to school students in India. It features a friendly AI tutor, grade-specific curriculums, and a hands-on coding sandbox, all within a single browser window.",
+  "requestFramePermissions": []
+}
