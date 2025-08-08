@@ -1,9 +1,16 @@
-
 // This file would be deployed as a serverless function, e.g., at /api/terminal
 // It would interact with a database like Firestore to manage terminals.
 // The implementation below is a MOCK. A real implementation would require a database connection.
 
 import { TerminalInfo } from "../types";
+import getFirestore from '../server/firebaseAdmin';
+
+const db = (() => {
+  try { return getFirestore(); } catch { return null as any; }
+})();
+
+const TERMINALS_COLL = 'terminals';
+const TOKENS_COLL = 'activation_tokens';
 
 // --- MOCK DATABASE ---
 // In a real app, this data would live in Firestore, Supabase, etc.
@@ -37,21 +44,29 @@ export default async (req: Request) => {
         if (!token) {
             return new Response(JSON.stringify({ message: 'Activation token is missing.' }), { status: 400 });
         }
-        
-        const terminalId = MOCK_DB.activationTokens.get(token);
-        if (!terminalId) {
+        if (!db) {
+          return new Response(JSON.stringify({ message: 'Database not configured' }), { status: 501 });
+        }
+
+        const tokenRef = db.collection(TOKENS_COLL).doc(token);
+        const tokenSnap = await tokenRef.get();
+        if (!tokenSnap.exists) {
             return new Response(JSON.stringify({ message: 'Invalid activation token.' }), { status: 404 });
         }
-        
-        const terminal = MOCK_DB.terminals.get(terminalId);
-        if (!terminal) {
-            return new Response(JSON.stringify({ message: 'Terminal not found for this token.' }), { status: 404 });
+        const { terminalId } = tokenSnap.data() as { terminalId: string };
+        if (!terminalId) {
+            return new Response(JSON.stringify({ message: 'Token is malformed.' }), { status: 500 });
         }
 
-        // Mark as active in a real DB
-        terminal.active = true;
+        const termRef = db.collection(TERMINALS_COLL).doc(terminalId);
+        const termSnap = await termRef.get();
+        if (!termSnap.exists) {
+            return new Response(JSON.stringify({ message: 'Terminal not found for this token.' }), { status: 404 });
+        }
+        const data = termSnap.data() as { info: TerminalInfo; active: boolean };
+        await termRef.set({ active: true }, { merge: true });
 
-        return new Response(JSON.stringify({ terminalId, terminalInfo: terminal.info }), { status: 200 });
+        return new Response(JSON.stringify({ terminalId, terminalInfo: data.info }), { status: 200 });
 
     } else if (req.method === 'GET') {
         // --- Check terminal status ---
@@ -59,17 +74,20 @@ export default async (req: Request) => {
         if (!terminalId) {
             return new Response(JSON.stringify({ message: 'Terminal ID is missing.' }), { status: 400 });
         }
-        
-        const terminal = MOCK_DB.terminals.get(terminalId);
-        if (!terminal) {
-            return new Response(JSON.stringify({ message: 'This terminal does not exist.' }), { status: 404 });
-        }
-        
-        if (!terminal.active) {
-            return new Response(JSON.stringify({ message: 'This terminal has been deactivated by the administrator.' }), { status: 403 });
+        if (!db) {
+          return new Response(JSON.stringify({ message: 'Database not configured' }), { status: 501 });
         }
 
-        return new Response(JSON.stringify({ terminalId, terminalInfo: terminal.info }), { status: 200 });
+        const termRef = db.collection(TERMINALS_COLL).doc(terminalId);
+        const termSnap = await termRef.get();
+        if (!termSnap.exists) {
+            return new Response(JSON.stringify({ message: 'This terminal does not exist.' }), { status: 404 });
+        }
+        const term = termSnap.data() as { info: TerminalInfo; active: boolean };
+        if (!term.active) {
+            return new Response(JSON.stringify({ message: 'This terminal has been deactivated by the administrator.' }), { status: 403 });
+        }
+        return new Response(JSON.stringify({ terminalId, terminalInfo: term.info }), { status: 200 });
     }
 
     return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });

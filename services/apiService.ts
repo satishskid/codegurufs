@@ -22,8 +22,8 @@ export const setStoredClientApiKey = (key: string | null) => {
 
 export const getStudentProgress = async (terminalId: string, studentName: string): Promise<StudentProgress | null> => {
   const response = await fetch(`/api/progress?terminalId=${terminalId}&studentName=${studentName}`);
-  if (response.status === 404) {
-    return null; // Student has no saved progress yet
+  if (response.status === 404 || response.status === 501) {
+    return null; // No progress yet or DB not configured
   }
   return handleResponse(response);
 };
