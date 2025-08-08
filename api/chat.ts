@@ -2,6 +2,7 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ChatMessage, MessageSender } from '../types';
 import { AI_PERSONA_PROMPT } from "../constants";
+import { getAuthUser } from '../server/clerkAuth';
 
 // This would be set in your serverless environment variables, NOT in the code.
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -9,6 +10,12 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 export default async (req: Request) => {
     if (req.method !== 'POST') {
         return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });
+    }
+
+    // Optional auth: if Clerk is configured, require a valid user
+    if (process.env.CLERK_SECRET_KEY) {
+      const user = await getAuthUser(req);
+      if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 });
     }
 
     try {

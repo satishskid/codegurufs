@@ -4,6 +4,7 @@
 
 import { StudentProgress } from '../types';
 import getFirestore from '../server/firebaseAdmin';
+import { getAuthUser } from '../server/clerkAuth';
 
 const db = (() => {
   try { return getFirestore(); } catch { return null as any; }
@@ -14,12 +15,11 @@ const STUDENTS_COLL = 'students_progress';
 // Fallback in-memory DB when admin SDK isn't configured
 const MOCK_PROGRESS_DB = new Map<string, StudentProgress>();
 
-// Optional Clerk verification (basic) – expects Authorization: Bearer <token>, but skips if absent.
+// Verify Clerk JWT when secret is configured; otherwise allow for local testing
 const verifyAuth = async (req: Request) => {
-  const auth = req.headers.get('authorization') || req.headers.get('Authorization');
-  if (!auth) return true; // allow missing for now
-  // TODO: integrate with Clerk verify (jwks). For MVP, accept presence.
-  return true;
+  if (!process.env.CLERK_SECRET_KEY) return true;
+  const user = await getAuthUser(req);
+  return !!user;
 };
 
 export default async (req: Request) => {

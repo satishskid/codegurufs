@@ -5,21 +5,24 @@ export const handler = async (event: any) => {
     ? Buffer.from(event.body, 'base64').toString()
     : event.body;
 
+  // Ensure Authorization header is forwarded as-is
+  const headers: Record<string, string> = { ...(event.headers as any) };
+
   const req = new Request(event.rawUrl, {
     method: event.httpMethod,
-    headers: event.headers as any,
+    headers: headers as any,
     body,
   });
 
   const res = await chat(req);
   const text = await res.text();
 
-  const headers: Record<string, string> = {};
-  res.headers.forEach((value, key) => (headers[key] = value));
+  const outHeaders: Record<string, string> = {};
+  res.headers.forEach((value, key) => (outHeaders[key] = value));
 
   return {
     statusCode: res.status,
-    headers,
+    headers: outHeaders,
     body: text,
   };
 };
