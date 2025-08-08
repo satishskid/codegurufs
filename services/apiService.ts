@@ -8,6 +8,16 @@ const handleResponse = async (response: Response) => {
   return response.json();
 };
 
+export const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  try {
+    const clerk: any = (window as any).Clerk;
+    const token = await clerk?.session?.getToken?.();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+};
+
 export const getStoredClientApiKey = (): string | null => {
   return localStorage.getItem('client_api_key');
 };
@@ -21,7 +31,8 @@ export const setStoredClientApiKey = (key: string | null) => {
 };
 
 export const getStudentProgress = async (terminalId: string, studentName: string): Promise<StudentProgress | null> => {
-  const response = await fetch(`/api/progress?terminalId=${terminalId}&studentName=${studentName}`);
+  const auth = await getAuthHeaders();
+  const response = await fetch(`/api/progress?terminalId=${terminalId}&studentName=${studentName}`, { headers: auth });
   if (response.status === 404 || response.status === 501) {
     return null; // No progress yet or DB not configured
   }
@@ -29,9 +40,10 @@ export const getStudentProgress = async (terminalId: string, studentName: string
 };
 
 export const saveStudentProgress = async (terminalId: string, studentName: string, progress: StudentProgress): Promise<void> => {
+  const auth = await getAuthHeaders();
   await fetch('/api/progress', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...auth },
     body: JSON.stringify({ terminalId, studentName, progress }),
   });
 };
@@ -43,9 +55,10 @@ export const getAiResponse = async (
   history: ChatMessage[]
 ): Promise<string> => {
   const clientApiKey = getStoredClientApiKey();
+  const auth = await getAuthHeaders();
   const response = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...auth },
     body: JSON.stringify({ terminalId, studentName, message: userMessage, history, clientApiKey }),
   });
   const data = await handleResponse(response);
@@ -58,9 +71,10 @@ export const evaluateCode = async (
     prompt: string
 ): Promise<string> => {
     const clientApiKey = getStoredClientApiKey();
+    const auth = await getAuthHeaders();
     const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify({ terminalId, studentName, message: prompt, isEvaluation: true, clientApiKey }),
     });
     const data = await handleResponse(response);

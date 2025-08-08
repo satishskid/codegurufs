@@ -4,31 +4,36 @@ import { ClerkProvider, useAuth, useUser, SignIn } from '@clerk/clerk-react';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import App from './App';
 import { INTERNAL_USERS, isAdmin as isAdminLocal } from './shared/admin';
+import { getAuthHeaders } from './services/apiService';
 
 const clerkPubKey = (import.meta as any).env.VITE_CLERK_PUBLISHABLE_KEY || (window as any).CLERK_PUBLISHABLE_KEY;
 
-const useServerAllowlist = () => {
+const useServerAllowlist = (refreshKey?: string) => {
   const [users, setUsers] = React.useState(INTERNAL_USERS);
   const [loaded, setLoaded] = React.useState(false);
   React.useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/admin', { headers: { 'x-admin-email': 'bootstrap@local' } });
-        if (res.status === 200) {
+        const auth = await getAuthHeaders();
+        const res = await fetch('/api/admin', { headers: { ...auth } });
+        if (!cancelled && res.status === 200) {
           const data = await res.json();
           setUsers(data.users?.map((u: any) => ({ email: u.email, role: u.role })) || INTERNAL_USERS);
         }
       } catch {}
-      setLoaded(true);
+      if (!cancelled) setLoaded(true);
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [refreshKey]);
   return { users, loaded } as const;
 };
 
 const AllowlistGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
-  const { users, loaded } = useServerAllowlist();
+  const refreshKey = user?.id || 'anon';
+  const { users, loaded } = useServerAllowlist(refreshKey);
   if (!isLoaded || !loaded) return null;
   if (!isSignedIn) return <Navigate to="/sign-in" replace />;
   const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase();
@@ -40,7 +45,8 @@ const AllowlistGate: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 const Admin: React.FC = () => {
   const { user } = useUser();
   const email = (user?.primaryEmailAddress?.emailAddress || '').toLowerCase();
-  const { users: allowlistUsers } = useServerAllowlist();
+  const refreshKey = user?.id || 'anon';
+  const { users: allowlistUsers } = useServerAllowlist(refreshKey);
   const serverIsAdmin = allowlistUsers.some(u => u.email.toLowerCase() === email && u.role === 'admin');
   const canAdmin = serverIsAdmin || isAdminLocal(email);
 
@@ -51,7 +57,8 @@ const Admin: React.FC = () => {
   React.useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/admin', { headers: { 'x-admin-email': email } });
+        const auth = await getAuthHeaders();
+        const res = await fetch('/api/admin', { headers: { ...auth } });
         if (res.status === 200) {
           const data = await res.json();
           setUsers(data.users);
@@ -64,19 +71,21 @@ const Admin: React.FC = () => {
 
   const addOrUpdate = async () => {
     if (!newEmail) return;
+    const auth = await getAuthHeaders();
     await fetch('/api/admin', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-email': email },
+      headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({ email: newEmail, role })
     });
     setNewEmail('');
-    const res = await fetch('/api/admin', { headers: { 'x-admin-email': email } });
+    const res = await fetch('/api/admin', { headers: { ...auth } });
     if (res.ok) setUsers((await res.json()).users);
   };
 
   const removeUser = async (uEmail: string) => {
-    await fetch(`/api/admin?email=${encodeURIComponent(uEmail)}`, { method: 'DELETE', headers: { 'x-admin-email': email } });
-    const res = await fetch('/api/admin', { headers: { 'x-admin-email': email } });
+    const auth = await getAuthHeaders();
+    await fetch(`/api/admin?email=${encodeURIComponent(uEmail)}`, { method: 'DELETE', headers: { ...auth } });
+    const res = await fetch('/api/admin', { headers: { ...auth } });
     if (res.ok) setUsers((await res.json()).users);
   };
 
