@@ -4,6 +4,7 @@ import ChatView from './components/ChatView';
 import StudentLogin from './components/StudentLogin';
 import Header from './components/Header';
 import { useTerminal } from './hooks/useTerminal';
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
 
 const App: React.FC = () => {
   const { 
@@ -38,14 +39,24 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen font-sans bg-slate-100">
-      <Header 
-        terminalInfo={terminalInfo}
-        studentName={studentName}
-        onLogout={logoutStudent} 
-      />
-      <main className="flex-grow overflow-hidden">
-        {renderContent()}
-      </main>
+      <SignedOut>
+        <div className="flex items-center justify-center h-full">
+          <SignInButton mode="modal"/>
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <Header 
+          terminalInfo={terminalInfo}
+          studentName={studentName}
+          onLogout={logoutStudent} 
+        />
+        <main className="flex-grow overflow-hidden">
+          {renderContent()}
+        </main>
+        <div className="fixed right-4 bottom-4">
+          <UserButton/>
+        </div>
+      </SignedIn>
     </div>
   );
 };

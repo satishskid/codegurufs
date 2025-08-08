@@ -1,4 +1,3 @@
-
 // This file would be deployed as a serverless function, e.g., at /api/chat
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ChatMessage, MessageSender } from '../types';
@@ -12,14 +11,18 @@ export default async (req: Request) => {
         return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });
     }
 
-    if (!GEMINI_API_KEY) {
-         return new Response(JSON.stringify({ message: 'Server configuration error: API key not set.' }), { status: 500 });
-    }
-
     try {
-        const { message, history, isEvaluation } = await req.json();
+        const { message, history, isEvaluation, clientApiKey } = await req.json();
 
-        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const effectiveKey = (typeof clientApiKey === 'string' && clientApiKey.trim().length > 0)
+          ? clientApiKey.trim()
+          : GEMINI_API_KEY;
+
+        if (!effectiveKey) {
+          return new Response(JSON.stringify({ message: 'Server configuration error: API key not set.' }), { status: 500 });
+        }
+
+        const ai = new GoogleGenAI({ apiKey: effectiveKey });
         
         let response: GenerateContentResponse;
 

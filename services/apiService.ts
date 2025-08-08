@@ -8,6 +8,18 @@ const handleResponse = async (response: Response) => {
   return response.json();
 };
 
+export const getStoredClientApiKey = (): string | null => {
+  return localStorage.getItem('client_api_key');
+};
+
+export const setStoredClientApiKey = (key: string | null) => {
+  if (!key) {
+    localStorage.removeItem('client_api_key');
+  } else {
+    localStorage.setItem('client_api_key', key);
+  }
+};
+
 export const getStudentProgress = async (terminalId: string, studentName: string): Promise<StudentProgress | null> => {
   const response = await fetch(`/api/progress?terminalId=${terminalId}&studentName=${studentName}`);
   if (response.status === 404) {
@@ -30,10 +42,11 @@ export const getAiResponse = async (
   userMessage: string,
   history: ChatMessage[]
 ): Promise<string> => {
+  const clientApiKey = getStoredClientApiKey();
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ terminalId, studentName, message: userMessage, history }),
+    body: JSON.stringify({ terminalId, studentName, message: userMessage, history, clientApiKey }),
   });
   const data = await handleResponse(response);
   return data.text;
@@ -44,10 +57,11 @@ export const evaluateCode = async (
     studentName: string,
     prompt: string
 ): Promise<string> => {
+    const clientApiKey = getStoredClientApiKey();
     const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ terminalId, studentName, message: prompt, isEvaluation: true }),
+        body: JSON.stringify({ terminalId, studentName, message: prompt, isEvaluation: true, clientApiKey }),
     });
     const data = await handleResponse(response);
     return data.text;
