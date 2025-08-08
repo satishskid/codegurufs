@@ -11,6 +11,9 @@ const db = (() => {
 
 const STUDENTS_COLL = 'students_progress';
 
+// Fallback in-memory DB when admin SDK isn't configured
+const MOCK_PROGRESS_DB = new Map<string, StudentProgress>();
+
 // Optional Clerk verification (basic) – expects Authorization: Bearer <token>, but skips if absent.
 const verifyAuth = async (req: Request) => {
   const auth = req.headers.get('authorization') || req.headers.get('Authorization');
@@ -35,7 +38,10 @@ export default async (req: Request) => {
         }
 
         if (!db) {
-          return new Response(JSON.stringify({ message: 'Database not configured' }), { status: 501 });
+          const progressKey = `${terminalId}_${studentName.toLowerCase()}`;
+          const progress = MOCK_PROGRESS_DB.get(progressKey);
+          if (progress) return new Response(JSON.stringify(progress), { status: 200 });
+          return new Response(JSON.stringify({ message: 'No progress found for this student.' }), { status: 404 });
         }
 
         const docId = `${terminalId}_${studentName.toLowerCase()}`;
@@ -52,9 +58,13 @@ export default async (req: Request) => {
         if (!terminalId || !studentName || !progress) {
             return new Response(JSON.stringify({ message: 'Missing required fields for saving progress.' }), { status: 400 });
         }
+
         if (!db) {
-          return new Response(JSON.stringify({ message: 'Database not configured' }), { status: 501 });
+          const progressKey = `${terminalId}_${studentName.toLowerCase()}`;
+          MOCK_PROGRESS_DB.set(progressKey, progress);
+          return new Response(null, { status: 204 });
         }
+
         const docId = `${terminalId}_${studentName.toLowerCase()}`;
         await db.collection(STUDENTS_COLL).doc(docId).set(progress, { merge: true });
         return new Response(null, { status: 204 });

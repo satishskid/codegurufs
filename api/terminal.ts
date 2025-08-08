@@ -12,28 +12,27 @@ const db = (() => {
 const TERMINALS_COLL = 'terminals';
 const TOKENS_COLL = 'activation_tokens';
 
-// --- MOCK DATABASE ---
-// In a real app, this data would live in Firestore, Supabase, etc.
+// --- MOCK DATABASE FALLBACK ---
 const MOCK_DB = {
-    terminals: new Map<string, { info: TerminalInfo; active: boolean }>(),
-    activationTokens: new Map<string, string>(), // token -> terminalId
+  terminals: new Map<string, { info: TerminalInfo; active: boolean }>(),
+  activationTokens: new Map<string, string>(), // token -> terminalId
 };
+if (!db) {
+  const demoTerminalId1 = "term_123";
+  MOCK_DB.terminals.set(demoTerminalId1, {
+      info: { schoolName: "Vibgyor High", className: "Grade 7B", teacherName: "Priya Sharma" },
+      active: true
+  });
+  MOCK_DB.activationTokens.set("token_abc", demoTerminalId1);
 
-// Pre-populate with some data for demonstration
-const demoTerminalId1 = "term_123";
-MOCK_DB.terminals.set(demoTerminalId1, {
-    info: { schoolName: "Vibgyor High", className: "Grade 7B", teacherName: "Priya Sharma" },
-    active: true
-});
-MOCK_DB.activationTokens.set("token_abc", demoTerminalId1);
-
-const demoTerminalId2 = "term_456";
-MOCK_DB.terminals.set(demoTerminalId2, {
-    info: { schoolName: "Delhi Public School", className: "Grade 10", teacherName: "Rohan Mehta" },
-    active: false // This terminal is deactivated
-});
-MOCK_DB.activationTokens.set("token_def", demoTerminalId2);
-// --- END MOCK DATABASE ---
+  const demoTerminalId2 = "term_456";
+  MOCK_DB.terminals.set(demoTerminalId2, {
+      info: { schoolName: "Delhi Public School", className: "Grade 10", teacherName: "Rohan Mehta" },
+      active: false
+  });
+  MOCK_DB.activationTokens.set("token_def", demoTerminalId2);
+}
+// --- END MOCK DATABASE FALLBACK ---
 
 export default async (req: Request) => {
     const url = new URL(req.url);
@@ -45,7 +44,12 @@ export default async (req: Request) => {
             return new Response(JSON.stringify({ message: 'Activation token is missing.' }), { status: 400 });
         }
         if (!db) {
-          return new Response(JSON.stringify({ message: 'Database not configured' }), { status: 501 });
+          const terminalId = MOCK_DB.activationTokens.get(token);
+          if (!terminalId) return new Response(JSON.stringify({ message: 'Invalid activation token.' }), { status: 404 });
+          const terminal = MOCK_DB.terminals.get(terminalId);
+          if (!terminal) return new Response(JSON.stringify({ message: 'Terminal not found for this token.' }), { status: 404 });
+          terminal.active = true;
+          return new Response(JSON.stringify({ terminalId, terminalInfo: terminal.info }), { status: 200 });
         }
 
         const tokenRef = db.collection(TOKENS_COLL).doc(token);
@@ -75,7 +79,10 @@ export default async (req: Request) => {
             return new Response(JSON.stringify({ message: 'Terminal ID is missing.' }), { status: 400 });
         }
         if (!db) {
-          return new Response(JSON.stringify({ message: 'Database not configured' }), { status: 501 });
+          const terminal = MOCK_DB.terminals.get(terminalId);
+          if (!terminal) return new Response(JSON.stringify({ message: 'This terminal does not exist.' }), { status: 404 });
+          if (!terminal.active) return new Response(JSON.stringify({ message: 'This terminal has been deactivated by the administrator.' }), { status: 403 });
+          return new Response(JSON.stringify({ terminalId, terminalInfo: terminal.info }), { status: 200 });
         }
 
         const termRef = db.collection(TERMINALS_COLL).doc(terminalId);

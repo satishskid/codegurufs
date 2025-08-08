@@ -7,13 +7,13 @@ export const getAdminApp = () => {
     try {
       if (!admin.apps.length) {
         const svc = process.env.FIREBASE_SERVICE_ACCOUNT;
-        if (!svc) {
-          console.warn('FIREBASE_SERVICE_ACCOUNT not set. Firestore APIs will not work.');
-        } else {
+        if (svc) {
           const credentials = JSON.parse(svc);
           admin.initializeApp({
             credential: admin.credential.cert(credentials as any),
           });
+        } else {
+          // Not configured; leave uninitialized
         }
       }
       initialized = true;
@@ -21,11 +21,17 @@ export const getAdminApp = () => {
       console.error('Failed to init firebase-admin', e);
     }
   }
+  if (!admin.apps.length) {
+    throw new Error('firebase-admin not configured');
+  }
   return admin.app();
 };
 
 export const getFirestore = () => {
-  const app = getAdminApp();
+  if (!admin.apps.length) {
+    throw new Error('firebase-admin not configured');
+  }
+  const app = admin.app();
   return admin.firestore(app);
 };
 
