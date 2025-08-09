@@ -11,19 +11,20 @@
     "env:import": "netlify env:import .env"
   },
   "dependencies": {
-    "react-dom": "^19.1.1",
-    "@google/genai": "^1.12.0",
-    "react": "^19.1.1",
-    "react-router-dom": "^6.26.2",
+    "@clerk/backend": "^1.16.2",
     "@clerk/clerk-react": "^5.40.0",
+    "@google/genai": "^1.12.0",
     "firebase": "^10.12.4",
     "firebase-admin": "^12.6.0",
-    "@clerk/backend": "^1.16.2"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "netlify-cli": "^17.33.1",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0",
-    "netlify-cli": "^17.33.1"
+    "vite": "^6.2.0"
   }
 }
