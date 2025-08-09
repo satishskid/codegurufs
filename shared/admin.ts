@@ -1,7 +1,7 @@
 export const INTERNAL_USERS = [
-  { email: 'satish@example.com', role: 'admin' as const },
-  { email: 'raghab@example.com', role: 'member' as const },
-  { email: 'pratichi@example.com', role: 'member' as const },
+  { email: 'satish@skids.health', role: 'admin' as const },
+  { email: 'raghab@skids.health', role: 'member' as const },
+  { email: 'drpratichi@skids.health', role: 'member' as const },
 ];
 
 export const ADMIN_EMAILS = INTERNAL_USERS.filter(u => u.role === 'admin').map(u => u.email.toLowerCase());
