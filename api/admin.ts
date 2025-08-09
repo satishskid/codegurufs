@@ -48,7 +48,14 @@ export default async (req: Request) => {
 
   const url = new URL(req.url);
   const authUser = await getAuthUser(req);
-  const callerEmail = authUser?.email || req.headers.get('x-admin-email');
+
+  // If Clerk is configured, require a valid authenticated user
+  if (process.env.CLERK_SECRET_KEY && !authUser) {
+    return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 });
+  }
+
+  // Determine caller email: use Clerk email when available; otherwise allow X-Admin-Email only if Clerk is not configured
+  const callerEmail = authUser?.email || (!process.env.CLERK_SECRET_KEY ? req.headers.get('x-admin-email') : null);
   if (!(await isAdmin(callerEmail))) {
     return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 });
   }
