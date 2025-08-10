@@ -116,14 +116,15 @@ const Admin: React.FC = () => {
 
 const SignInPage: React.FC = () => (
   <div className="flex items-center justify-center min-h-screen">
-    <SignIn routing="path" path="/sign-in" signUpUrl={undefined} />
+    <SignIn />
   </div>
 );
 
 const router = createBrowserRouter([
   { path: '/', element: <AllowlistGate><App /></AllowlistGate> },
   { path: '/admin', element: <AllowlistGate><Admin /></AllowlistGate> },
-  { path: '/sign-in', element: <SignInPage /> },
+  { path: '/sign-in/*', element: <SignInPage /> },
+  { path: '*', element: <Navigate to="/" replace /> },
 ]);
 
 const rootElement = document.getElementById('root');
@@ -133,7 +134,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={clerkPubKey} signInForceRedirectUrl="/">
+    <ClerkProvider publishableKey={clerkPubKey} signInFallbackRedirectUrl="/" signUpFallbackRedirectUrl="/">
       <RouterProvider router={router} />
     </ClerkProvider>
   </React.StrictMode>

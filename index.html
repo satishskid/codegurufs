@@ -6,7 +6,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Code Buddy</title>
-    <!-- Tailwind is now built via PostCSS; see index.css link below -->
+    <!-- Tailwind is built via PostCSS and included through JS import -->
     <script type="importmap">
     {
       "imports": {
@@ -21,7 +21,6 @@
       // Optional: allow setting Clerk publishable key at runtime
       window.CLERK_PUBLISHABLE_KEY = window.CLERK_PUBLISHABLE_KEY || '';
     </script>
-    <link rel="stylesheet" href="/index.css">
   </head>
   <body class="bg-slate-100">
     <div id="root"></div>
