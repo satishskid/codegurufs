@@ -1,27 +1,38 @@
 import adminApi from '../../api/admin';
 
 export const handler = async (event: any) => {
-  const body = event.isBase64Encoded && event.body
-    ? Buffer.from(event.body, 'base64').toString()
-    : event.body;
+  try {
+    const body = event.isBase64Encoded && event.body
+      ? Buffer.from(event.body, 'base64').toString()
+      : event.body;
 
-  const headers: Record<string, string> = { ...(event.headers as any) };
+    const headers: Record<string, string> = { ...(event.headers as any) };
 
-  const req = new Request(event.rawUrl, {
-    method: event.httpMethod,
-    headers: headers as any,
-    body,
-  });
+    const req = new Request(event.rawUrl, {
+      method: event.httpMethod,
+      headers: headers as any,
+      body,
+    });
 
-  const res = await adminApi(req);
-  const text = await res.text();
+    const res = await adminApi(req);
+    const text = await res.text();
 
-  const outHeaders: Record<string, string> = {};
-  res.headers.forEach((value, key) => (outHeaders[key] = value));
+    const outHeaders: Record<string, string> = {};
+    res.headers.forEach((value, key) => (outHeaders[key] = value));
 
-  return {
-    statusCode: res.status,
-    headers: outHeaders,
-    body: text,
-  };
+    return {
+      statusCode: res.status,
+      headers: outHeaders,
+      body: text,
+    };
+  } catch (error) {
+    console.error('Admin function error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ 
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }),
+    };
+  }
 };

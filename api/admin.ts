@@ -6,6 +6,7 @@
 
 import getFirestore from '../server/firebaseAdmin';
 import { getAuthUser } from '../server/clerkAuth';
+import { INTERNAL_USERS, isAdmin as isLocalAdmin } from '../shared/admin';
 
 const db = (() => {
   try { return getFirestore(); } catch { return null as any; }
@@ -15,10 +16,21 @@ const USERS_COLL = 'allowlist_users';
 
 // Optional check: only allow admins via Clerk user or fallback header
 const isAdmin = async (email?: string | null) => {
-  if (!email || !db) return false;
-  const doc = await db.collection(USERS_COLL).doc(String(email).toLowerCase()).get();
-  const data = doc.data();
-  return !!data && data.role === 'admin';
+  if (!email) return false;
+  
+  // Check local hardcoded admin list first
+  if (isLocalAdmin(email)) return true;
+  
+  // Then check Firestore if available
+  if (!db) return false;
+  try {
+    const doc = await db.collection(USERS_COLL).doc(String(email).toLowerCase()).get();
+    const data = doc.data();
+    return !!data && data.role === 'admin';
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
 };
 
 const seedAllowlistIfEmpty = async () => {
@@ -40,40 +52,63 @@ const seedAllowlistIfEmpty = async () => {
 };
 
 export default async (req: Request) => {
-  if (!db) {
-    return new Response(JSON.stringify({ message: 'Database not configured' }), { status: 501 });
-  }
+  try {
+    const url = new URL(req.url);
+    const authUser = await getAuthUser(req);
+    const callerEmail = authUser?.email || req.headers.get('x-admin-email');
+    
+    // If Firebase is not configured, fall back to hardcoded users
+    if (!db) {
+      console.log('Database not configured, using hardcoded fallback');
+      
+      if (!(await isAdmin(callerEmail))) {
+        return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 });
+      }
 
-  await seedAllowlistIfEmpty();
+      if (req.method === 'GET') {
+        return new Response(JSON.stringify({ users: INTERNAL_USERS }), { 
+          status: 200, 
+          headers: { 'Content-Type': 'application/json' } 
+        });
+      }
 
-  const url = new URL(req.url);
-  const authUser = await getAuthUser(req);
-  const callerEmail = authUser?.email || req.headers.get('x-admin-email');
-  if (!(await isAdmin(callerEmail))) {
-    return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 });
-  }
-
-  if (req.method === 'GET') {
-    const snap = await db.collection(USERS_COLL).get();
-    const users = snap.docs.map(d => ({ email: d.id, ...(d.data() || {}) }));
-    return new Response(JSON.stringify({ users }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }
-
-  if (req.method === 'POST') {
-    const { email, role } = await req.json();
-    if (!email || !role) {
-      return new Response(JSON.stringify({ message: 'Missing email or role' }), { status: 400 });
+      return new Response(JSON.stringify({ message: 'Database not configured - admin operations limited' }), { status: 501 });
     }
-    await db.collection(USERS_COLL).doc(String(email).toLowerCase()).set({ role }, { merge: true });
-    return new Response(null, { status: 204 });
-  }
 
-  if (req.method === 'DELETE') {
-    const email = url.searchParams.get('email');
-    if (!email) return new Response(JSON.stringify({ message: 'Missing email' }), { status: 400 });
-    await db.collection(USERS_COLL).doc(String(email).toLowerCase()).delete();
-    return new Response(null, { status: 204 });
-  }
+    await seedAllowlistIfEmpty();
+    
+    if (!(await isAdmin(callerEmail))) {
+      return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 });
+    }
 
-  return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });
+    if (req.method === 'GET') {
+      const snap = await db.collection(USERS_COLL).get();
+      const users = snap.docs.map(d => ({ email: d.id, ...(d.data() || {}) }));
+      return new Response(JSON.stringify({ users }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (req.method === 'POST') {
+      const { email, role } = await req.json();
+      if (!email || !role) {
+        return new Response(JSON.stringify({ message: 'Missing email or role' }), { status: 400 });
+      }
+      await db.collection(USERS_COLL).doc(String(email).toLowerCase()).set({ role }, { merge: true });
+      return new Response(null, { status: 204 });
+    }
+
+    if (req.method === 'DELETE') {
+      const email = url.searchParams.get('email');
+      if (!email) return new Response(JSON.stringify({ message: 'Missing email' }), { status: 400 });
+      await db.collection(USERS_COLL).doc(String(email).toLowerCase()).delete();
+      return new Response(null, { status: 204 });
+    }
+
+    return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });
+  } catch (error) {
+    console.error('Admin API error:', error);
+    return new Response(JSON.stringify({ 
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }), { status: 500 });
+  }
 };
