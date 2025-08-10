@@ -4,7 +4,6 @@
 
 import { TerminalInfo } from "../types";
 import getFirestore from '../server/firebaseAdmin';
-import { getAuthUser } from '../server/clerkAuth';
 
 const db = (() => {
   try { return getFirestore(); } catch { return null as any; }
@@ -12,13 +11,6 @@ const db = (() => {
 
 const TERMINALS_COLL = 'terminals';
 const TOKENS_COLL = 'activation_tokens';
-
-// Optional auth: require Clerk token if server is configured
-const verifyAuth = async (req: Request) => {
-  if (!process.env.CLERK_SECRET_KEY) return true;
-  const user = await getAuthUser(req);
-  return !!user;
-};
 
 // --- MOCK DATABASE FALLBACK ---
 const MOCK_DB = {
@@ -44,10 +36,6 @@ if (!db) {
 
 export default async (req: Request) => {
     const url = new URL(req.url);
-
-    if (!(await verifyAuth(req))) {
-      return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 });
-    }
 
     if (req.method === 'POST') {
         // --- Activate a terminal ---

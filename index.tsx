@@ -1,3 +1,4 @@
+import './index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ClerkProvider, useAuth, useUser, SignIn } from '@clerk/clerk-react';

@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
 import { TerminalInfo } from '../types';
-import { getAuthHeaders } from '../services/apiService';
 
 export const useTerminal = () => {
   const [terminalId, setTerminalId] = useState<string | null>(() => localStorage.getItem('terminal_id'));
@@ -23,10 +22,9 @@ export const useTerminal = () => {
       let currentTerminalId = localStorage.getItem('terminal_id');
 
       try {
-        const auth = await getAuthHeaders();
         if (activationToken) {
           // New activation
-          const response = await fetch(`/api/terminal?token=${activationToken}`, { method: 'POST', headers: { ...auth } });
+          const response = await fetch(`/api/terminal?token=${activationToken}`, { method: 'POST' });
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Activation failed.');
@@ -45,7 +43,7 @@ export const useTerminal = () => {
 
         if (currentTerminalId) {
           // Check status of existing terminal
-          const response = await fetch(`/api/terminal?terminalId=${currentTerminalId}`, { headers: { ...auth } });
+          const response = await fetch(`/api/terminal?terminalId=${currentTerminalId}`);
           if (!response.ok) {
              const errorData = await response.json();
             throw new Error(errorData.message || 'Terminal is not active.');
